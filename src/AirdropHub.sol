@@ -6,9 +6,11 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 
 contract AirdropFactory is AccessControl {
     mapping(ERC20 => AirdropMain) airdropContracts;
+    address immutable defaultAdmin;
 
     constructor() {
-        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        defaultAdmin = msg.sender;
+        _grantRole(DEFAULT_ADMIN_ROLE, defaultAdmin);
     }
 
     function createNewAirdrop(
@@ -19,20 +21,23 @@ contract AirdropFactory is AccessControl {
         uint256[] memory fidAmounts
     ) public {
         require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender));
+        require(eligibleAddresses.length == addressAmounts.length);
+        require(eligibleFIDs.length == fidAmounts.length);
 
         AirdropMain newAirdrop = new AirdropMain(
             airdropToken_,
             eligibleAddresses,
             addressAmounts,
             eligibleFIDs,
-            fidAmounts
+            fidAmounts,
+            defaultAdmin
         );
 
         airdropContracts[airdropToken_] = newAirdrop;
     }
 } // generate a new Airdrop contract for each airdrop
 
-contract AirdropMain {
+contract AirdropMain is AccessControl {
     uint256 immutable totalAmountToAirdrop;
     mapping(address => uint256) addressAmountEligibility; //address => airdrop ammount
     mapping(uint256 => uint256) fidAmountEligibility; // fid => airdrop ammount
@@ -44,10 +49,11 @@ contract AirdropMain {
         address[] memory eligibleAddresses,
         uint256[] memory addressAmounts,
         uint256[] memory eligibleFIDs,
-        uint256[] memory fidAmounts
+        uint256[] memory fidAmounts,
+        address defaultAdmin
     ) {
-        require(eligibleAddresses.length == addressAmounts.length);
-        require(eligibleFIDs.length == fidAmounts.length);
+        _grantRole(DEFAULT_ADMIN_ROLE, defaultAdmin);
+
         airdropToken = airdropToken_;
 
         uint256 totalAmount = 0;
@@ -76,7 +82,7 @@ contract AirdropMain {
     }
 
     function linkAddressToFid(uint256 fid, address addressToLink) public {
-        //only admin role
+        require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender));
         linkedFid[fid] = addressToLink;
     }
 
