@@ -2,14 +2,38 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
 
-contract AirdropFactory {
-    function createNewAirdrop() public {
-        // only Admin
-    } // call Airdropmain()
+contract AirdropFactory is AccessControl {
+    mapping(ERC20 => AirdropMain) airdropContracts;
+
+    constructor() {
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+    }
+
+    function createNewAirdrop(
+        ERC20 airdropToken_,
+        address[] memory eligibleAddresses,
+        uint256[] memory addressAmounts,
+        uint256[] memory eligibleFIDs,
+        uint256[] memory fidAmounts
+    ) public {
+        require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender));
+
+        AirdropMain newAirdrop = new AirdropMain(
+            airdropToken_,
+            eligibleAddresses,
+            addressAmounts,
+            eligibleFIDs,
+            fidAmounts
+        );
+
+        airdropContracts[airdropToken_] = newAirdrop;
+    }
 } // generate a new Airdrop contract for each airdrop
 
 contract AirdropMain {
+    uint256 immutable totalAmountToAirdrop;
     mapping(address => uint256) addressAmountEligibility; //address => airdrop ammount
     mapping(uint256 => uint256) fidAmountEligibility; // fid => airdrop ammount
     mapping(uint256 => address) linkedFid; // address => linked fid, for dynamic wallets ( AA wallets )
@@ -37,6 +61,8 @@ contract AirdropMain {
             fidAmountEligibility[eligibleFIDs[i]] = fidAmounts[i];
             totalAmount += fidAmounts[i];
         }
+
+        totalAmountToAirdrop = totalAmount;
 
         airdropToken.transferFrom(msg.sender, address(this), totalAmount);
     }
